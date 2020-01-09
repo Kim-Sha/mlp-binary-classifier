@@ -167,16 +167,14 @@ class BinaryNN:
             A, cache = self.linear_activation_forward(A_prev,
                                                       parameters['W' + str(l)],
                                                       parameters['b' + str(l)],
-                                                      activation = "relu"
-                                                     )
+                                                      activation = "relu")
             caches.append(cache)
         
         # Implement LINEAR -> SIGMOID. Add "cache" to the "caches" list.
         AL, cache = self.linear_activation_forward(A,
                                                    parameters['W' + str(L)],
                                                    parameters['b' + str(L)],
-                                                   activation = "sigmoid"
-                                                   )
+                                                   activation = "sigmoid")
         caches.append(cache)
         
         assert(AL.shape == (1, X.shape[1]))
@@ -369,7 +367,8 @@ class BinaryNN:
             parameters["b" + str(l+1)] -= learning_rate * grads["db" + str(l+1)]
         return parameters
     
-    def L_layer_model(self, layer_dimensions, learning_rate = 0.0075, num_iterations = 3000, print_cost=False):
+    def L_layer_model(self, layer_dimensions, learning_rate = 0.0075,
+                      num_iterations = 3000, print_cost = False):
         """
         Implements a L-layer neural network: [LINEAR->RELU]*(L-1)->LINEAR->SIGMOID.
         
@@ -395,7 +394,7 @@ class BinaryNN:
         """
 
         np.random.seed(1)
-        costs = []                         # keep track of cost
+        costs = [] # keep track of cost
         
         # Parameters initialization. (≈ 1 line of code)
         parameters = self.initialize_parameters(layer_dimensions)
@@ -429,3 +428,44 @@ class BinaryNN:
         plt.show()
         
         return parameters
+
+        # GRADED FUNCTION: predict
+
+    def predict(self, w, b, X):
+        '''
+        Predict whether the label is 0 or 1 using learned logistic regression parameters (w, b)
+        
+        Parameters
+        ----------
+        w : numpy array
+            Weights
+        b : float
+            Bias constant
+        X : numpy array
+            Data
+        
+        Returns
+        -------
+        Y_prediction : numpy array
+            Vector containing all predictions (0/1) for the samples in X
+        '''
+        
+        m = X.shape[1]
+        Y_prediction = np.zeros((1,m))
+        w = w.reshape(X.shape[0], 1)
+        
+        # Compute vector "A" predicting the probabilities of a cat being present in the picture
+        A = sigmoid(np.dot(w.T, X))
+        
+        for i in range(A.shape[1]):
+            
+            # Convert probabilities A[0,i] to actual predictions p[0,i]
+            if A[0][i] > 0.5:
+                Y_prediction[0][i] = 1
+            else:
+                Y_prediction[0][i] = 0
+            pass
+        
+        assert(Y_prediction.shape == (1, m))
+        
+        return Y_prediction
