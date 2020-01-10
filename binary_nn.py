@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from activation_functions import sigmoid, sigmoid_backward, relu, relu_backward
 from sklearn import preprocessing
 
-np.random.seed(1)
+# np.random.seed(1)
 
 class BinaryNN:
     """Brief class description
@@ -57,12 +57,12 @@ class BinaryNN:
                                                      layer_dimensions[i - 1])
                         bi : bias vector of shape (layer_dimensions[i], 1)
         """
-        np.random.seed(1)
+        np.random.seed(3)
         parameters = {}
         L = len(layer_dimensions)
 
         for i in range(1, L):
-            parameters['W' + str(i)] = np.random.randn(layer_dimensions[i], layer_dimensions[i-1]) / np.sqrt(layer_dimensions[i-1])
+            parameters['W' + str(i)] = np.random.randn(layer_dimensions[i], layer_dimensions[i-1]) * np.sqrt(2 / layer_dimensions[i-1])
             parameters['b' + str(i)] = np.zeros((layer_dimensions[i], 1))
         
             assert(parameters['W' + str(i)].shape == (layer_dimensions[i], 
@@ -108,7 +108,7 @@ class BinaryNN:
         
         return v, s
 
-    def random_mini_batches(self, X, Y, mini_batch_size = 64):
+    def random_mini_batches(self, X, Y, mini_batch_size = 64, seed=0):
         """
         Creates a list of random minibatches from (X, Y)
         
@@ -127,7 +127,7 @@ class BinaryNN:
             List of synchronous (mini_batch_X, mini_batch_Y)
         """
         
-        np.random.seed(0)
+        np.random.seed(seed)
         m = X.shape[1] # number of training examples
         mini_batches = []
             
@@ -295,11 +295,11 @@ class BinaryNN:
 
         # Compute loss from aL and y.
         cost = -(1/m)*np.sum((np.multiply(np.log(AL), Y) + np.multiply(np.log(1-AL), 1-Y)))
+        cost_total = np.sum(cost)
+        # cost = np.squeeze(cost)
+        # assert(cost.shape == ())
         
-        cost = np.squeeze(cost)
-        assert(cost.shape == ())
-        
-        return cost
+        return cost_total
     
     """
     BACKPROP 
@@ -628,7 +628,7 @@ class BinaryNN:
             
             # Define the random minibatches. We increment the seed to reshuffle differently the dataset after each epoch
             seed = seed + 1
-            minibatches = self.random_mini_batches(self.X, self.Y, mini_batch_size)
+            minibatches = self.random_mini_batches(self.X, self.Y, mini_batch_size, seed)
             cost_total = 0
             
             for minibatch in minibatches:
@@ -657,8 +657,8 @@ class BinaryNN:
             cost_avg = cost_total / m
             
             # Print the cost every 1000 epoch
-            if print_cost and i % 1000 == 0:
-                print ("Cost after epoch %i: %f" %(i, cost_avg))
+            if print_cost and i % 1000 == 0: 
+                print("Cost after epoch %i: %f" %(i, cost_avg))
             if i % 100 == 0:
                 costs.append(cost_avg)
         
@@ -701,3 +701,11 @@ class BinaryNN:
         print("Accuracy: "  + str(np.sum((p == y)/m)))
             
         return p
+
+
+# X_train = np.loadtxt("predict-moons/data-moons/x_train.csv")
+# y_train = np.loadtxt("predict-moons/data-moons/y_train.csv")
+# y_train = y_train.reshape(1, y_train.shape[0])
+# moons_nn = BinaryNN(X = X_train, Y = y_train)
+# moons_nn.model(layer_dimensions = [X_train.shape[0], 5, 2, 1],
+#                optimizer = "adam")
