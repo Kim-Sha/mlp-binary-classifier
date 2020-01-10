@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from activation_functions import sigmoid, sigmoid_backward, relu, relu_backward
@@ -70,6 +71,89 @@ class BinaryNN:
         
         return parameters
     
+    def initialize_adam(self, parameters) :
+        """
+        Initializes v and s as two python dictionaries with:
+                    - keys: "dW1", "db1", ..., "dWL", "dbL" 
+                    - values: numpy arrays of zeros of the same shape as the corresponding gradients/parameters.
+        
+        Parameters
+        ----------
+        parameters : dict
+            parameters["W" + str(l)] = Wl; parameters["b" + str(l)] = bl
+        
+        Returns
+        ------- 
+        v : dict
+            Exponentially weighted average of the gradients.
+                        v["dW" + str(l)] = ...
+                        v["db" + str(l)] = ...
+        s : dict
+            Exponentially weighted average of the squared gradients.
+                        s["dW" + str(l)] = ...
+                        s["db" + str(l)] = ...
+
+        """
+        
+        L = len(parameters) // 2 # number of layers in the neural networks
+        v = {}
+        s = {}
+        
+        # Initialize v, s. Input: "parameters". Outputs: "v, s".
+        for l in range(L):
+            v["dW" + str(l+1)] = np.zeros(parameters["W" + str(l+1)].shape)
+            v["db" + str(l+1)] = np.zeros(parameters["b" + str(l+1)].shape)
+            s["dW" + str(l+1)] = np.zeros(parameters["W" + str(l+1)].shape)
+            s["db" + str(l+1)] = np.zeros(parameters["b" + str(l+1)].shape)
+        
+        return v, s
+
+    def random_mini_batches(self, X, Y, mini_batch_size = 64):
+        """
+        Creates a list of random minibatches from (X, Y)
+        
+        Parameters
+        ----------
+        X : numpy array
+            Input data, of shape (input size, number of examples)
+        Y : numpy array
+            True "label" vector of shape (1, number of examples)
+        mini_batch_size : int
+            Size of the mini-batches, integer
+        
+        Returns
+        -------
+        mini_batches : list
+            List of synchronous (mini_batch_X, mini_batch_Y)
+        """
+        
+        np.random.seed(0)
+        m = X.shape[1] # number of training examples
+        mini_batches = []
+            
+        # Step 1: Shuffle (X, Y)
+        permutation = list(np.random.permutation(m))
+        shuffled_X = X[:, permutation]
+        shuffled_Y = Y[:, permutation].reshape((1,m))
+
+        # Step 2: Partition (shuffled_X, shuffled_Y). Minus the end case.
+        num_complete_minibatches = math.floor(m/mini_batch_size) # number of mini batches of size mini_batch_size in your partitionning
+        for k in range(0, num_complete_minibatches):
+            mini_batch_X = shuffled_X[:, k * mini_batch_size : (k + 1) * mini_batch_size]
+            mini_batch_Y = shuffled_Y[:, k * mini_batch_size : (k + 1) * mini_batch_size]
+            mini_batch = (mini_batch_X, mini_batch_Y)
+            mini_batches.append(mini_batch)
+        
+        # Handling the end case (last mini-batch < mini_batch_size)
+        if m % mini_batch_size != 0:
+            final_batch_size = m - mini_batch_size * math.floor(m / mini_batch_size)
+            mini_batch_X = shuffled_X[:, num_complete_minibatches * mini_batch_size : num_complete_minibatches * mini_batch_size + final_batch_size]
+            mini_batch_Y = shuffled_Y[:, num_complete_minibatches * mini_batch_size : num_complete_minibatches * mini_batch_size + final_batch_size]
+            mini_batch = (mini_batch_X, mini_batch_Y)
+            mini_batches.append(mini_batch)
+        
+        return mini_batches
+
     """
     FORWARD PROP
     """
@@ -370,6 +454,70 @@ class BinaryNN:
             parameters["b" + str(l+1)] -= learning_rate * grads["db" + str(l+1)]
         return parameters
     
+    def update_parameters_with_adam(self, parameters, grads, v, s, t, learning_rate = 0.01,
+                                    beta1 = 0.9, beta2 = 0.999,  epsilon = 1e-8):
+        """
+        Update parameters using Adam
+        
+        Parameters
+        ----------
+        parameters : dict
+            parameters['W' + str(l)] = Wl
+            parameters['b' + str(l)] = bl
+        grads : dict
+            grads['dW' + str(l)] = dWl
+            grads['db' + str(l)] = dbl
+        v : dict
+            Adam variable, moving average of the first gradient
+        s : dict
+            Adam variable, moving average of the squared gradient
+        learning_rate : float
+        beta1 : float
+            Exponential decay hyperparameter for the first moment estimates 
+        beta2 : float
+            Exponential decay hyperparameter for the second moment estimates 
+        epsilon : float
+            hyperparameter preventing division by zero in Adam updates
+
+        Returns
+        -------
+        parameters : dict
+        v : dict
+        s : dict
+        """
+        
+        L = len(parameters) // 2  # number of layers in the neural networks
+        v_corrected = {}          # Initializing first moment estimate
+        s_corrected = {}          # Initializing second moment estimate
+        
+        # Perform Adam update on all parameters
+        for l in range(L):
+            # Moving average of the gradients. Inputs: "v, grads, beta1". Output: "v".
+            v["dW" + str(l+1)] = beta1 * v["dW" + str(l+1)] + (1 - beta1) * grads["dW" + str(l+1)]
+            v["db" + str(l+1)] = beta1 * v["db" + str(l+1)] + (1 - beta1) * grads["db" + str(l+1)]
+
+            # Compute bias-corrected first moment estimate. Inputs: "v, beta1, t". Output: "v_corrected".
+            v_corrected["dW" + str(l+1)] = v["dW" + str(l+1)] / (1 - np.power(beta1, t))
+            v_corrected["db" + str(l+1)] = v["db" + str(l+1)] / (1 - np.power(beta1, t))
+
+            # Moving average of the squared gradients. Inputs: "s, grads, beta2". Output: "s".
+            s["dW" + str(l+1)] = beta2 * s["dW" + str(l+1)] + (1 - beta2) * np.power(grads["dW" + str(l+1)], 2)
+            s["db" + str(l+1)] = beta2 * s["db" + str(l+1)] + (1 - beta2) * np.power(grads["db" + str(l+1)], 2)
+
+            # Compute bias-corrected second raw moment estimate. Inputs: "s, beta2, t". Output: "s_corrected".
+            s_corrected["dW" + str(l+1)] = s["dW" + str(l+1)] / (1 - np.power(beta2, t))
+            s_corrected["db" + str(l+1)] = s["db" + str(l+1)] / (1 - np.power(beta2, t))
+
+            # Update parameters. Inputs: "parameters, learning_rate, v_corrected, s_corrected, epsilon". Output: "parameters".
+            parameters["W" + str(l+1)] = parameters["W" + str(l+1)] - learning_rate * v_corrected["dW" + str(l+1)] / (np.sqrt(s_corrected["dW" + str(l+1)]) + epsilon)
+            parameters["b" + str(l+1)] = parameters["b" + str(l+1)] - learning_rate * v_corrected["db" + str(l+1)] / (np.sqrt(s_corrected["db" + str(l+1)]) + epsilon)
+
+        return parameters, v, s
+
+    """
+    MODEL
+    """
+
     def L_layer_model(self, layer_dimensions, learning_rate = 0.0075,
                       num_iterations = 2500, print_cost = False):
         """
@@ -430,7 +578,98 @@ class BinaryNN:
         plt.xlabel('iterations (per hundreds)')
         plt.title("Learning rate =" + str(learning_rate))
         plt.show()
+    
+    def model(self, layer_dimensions, optimizer, learning_rate = 0.0007,
+              mini_batch_size = 64, beta = 0.9, beta1 = 0.9, beta2 = 0.999, 
+              epsilon = 1e-8, num_epochs = 10000, print_cost = True):
+        """
+        3-layer neural network model which can be run in different optimizer modes.
+        
+        Parameters
+        ----------
+        layer_dimensions : list
+        learning_rate : float
+        mini_batch_size : float
+        beta : float
+            Momentum hyperparameter
+        beta1 : float
+            Exponential decay hyperparameter for the past gradients estimates 
+        beta2 : float
+            Exponential decay hyperparameter for the past squared gradients estimates 
+        epsilon : float
+            hyperparameter preventing division by zero in Adam updates
+        num_epochs : int
+            number of epoch iterations
+        print_cost : boolean
+            True to print the cost every 1000 epochs
+
+        Returns
+        -------
+        parameters : dict
+        """
+
+        L = len(layer_dimensions) # number of layers in the neural networks
+        costs = []                # to keep track of the cost
+        t = 0                     # initializing counter required for Adam update
+        seed = 10
+        m = self.X.shape[1]       # number of training examples
+        
+        # Initialize parameters
+        parameters = self.initialize_parameters(layer_dimensions)
+
+        # Initialize the optimizer
+        if optimizer == "gd":
+            pass # no initialization required for gradient descent
+        elif optimizer == "adam":
+            v, s = self.initialize_adam(parameters)
+        
+        # Optimization loop
+        for i in range(num_epochs):
             
+            # Define the random minibatches. We increment the seed to reshuffle differently the dataset after each epoch
+            seed = seed + 1
+            minibatches = self.random_mini_batches(self.X, self.Y, mini_batch_size)
+            cost_total = 0
+            
+            for minibatch in minibatches:
+
+                # Select a minibatch
+                (minibatch_X, minibatch_Y) = minibatch
+
+                # Forward propagation
+                # a3, caches = forward_propagation(minibatch_X, parameters)
+                AL, caches = self.L_model_forward(minibatch_X, parameters)
+
+                # Compute cost and add to the cost total
+                cost_total += self.compute_cost(AL, minibatch_Y)
+
+                # Backward propagation
+                # grads = backward_propagation(minibatch_X, minibatch_Y, caches)
+                grads = self.L_model_backward(AL, minibatch_Y, caches)
+
+                # Update parameters
+                if optimizer == "gd":
+                    parameters = self.update_parameters(parameters, grads, learning_rate)
+                elif optimizer == "adam":
+                    t = t + 1 # Adam counter
+                    parameters, v, s = self.update_parameters_with_adam(parameters, grads, v, s,
+                                                                t, learning_rate, beta1, beta2,  epsilon)
+            cost_avg = cost_total / m
+            
+            # Print the cost every 1000 epoch
+            if print_cost and i % 1000 == 0:
+                print ("Cost after epoch %i: %f" %(i, cost_avg))
+            if i % 100 == 0:
+                costs.append(cost_avg)
+        
+        self.parameters = parameters
+        # plot the cost
+        plt.plot(costs)
+        plt.ylabel('cost')
+        plt.xlabel('epochs (per 100)')
+        plt.title("Learning rate = " + str(learning_rate))
+        plt.show()
+
     def predict(self, X, y):
         """
         This function is used to predict the results of a  L-layer neural network.
@@ -462,57 +701,3 @@ class BinaryNN:
         print("Accuracy: "  + str(np.sum((p == y)/m)))
             
         return p
-
-'''
---------------------------------------------------------------------------------
-'''
-
-# cat_X_train = np.loadtxt("cat_train_x.csv")
-# cat_y_train = np.loadtxt("cat_train_y.csv")
-# cat_X_test = np.loadtxt("cat_test_x.csv")
-# cat_y_test = np.loadtxt("cat_test_y.csv")
-
-# cat_X_train = cat_X_train
-# cat_y_train = cat_y_train.reshape(1, cat_y_train.shape[0])
-# cat_X_test = cat_X_test
-# cat_y_test = cat_y_test.reshape(1, cat_y_test.shape[0])
-
-# cat_layers_dims = [12288, 20, 7, 5, 1]
-
-# cat_nn = BinaryNN(X = cat_X_train, Y = cat_y_train)
-# cat_parameters = cat_nn.L_layer_model(layer_dimensions = cat_layers_dims, print_cost = True)
-
-# Z1 = np.dot(cat_parameters["W1"], cat_X_train) + cat_parameters["b1"]
-# A1 = relu(Z1)[0]
-# Z2 = np.dot(cat_parameters["W2"], A1) + cat_parameters["b2"]
-# A2 = relu(Z2)[0]
-# Z3 = np.dot(cat_parameters["W3"], A2) + cat_parameters["b3"]
-# A3 = relu(Z3)[0]
-# Z4 = np.dot(cat_parameters["W4"], A3) + cat_parameters["b4"]
-# A4 = sigmoid(Z4)[0]
-
-# pred_train = np.where(A4 > 0.5, 1, 0)
-# print(accuracy_score(cat_y_train[0], pred_train[0]))
-
-
-'''
---------------------------------------------------------------------------------
-'''
-
-# X_train = np.loadtxt("x_train.csv")
-# y_train = np.loadtxt("y_train.csv")
-# X_test = np.loadtxt("x_test.csv")
-# y_test = np.loadtxt("y_test.csv")
-
-# X_train = X_train.T
-# y_train = y_train.reshape(1, y_train.shape[0])
-# X_test = X_test.T
-# y_test = y_test.reshape(1, y_test.shape[0])
-
-# scaler = preprocessing.StandardScaler()
-# scaler.fit(X_train)
-# norm_X_train = scaler.transform(X_train)
-
-# churn_nn = BinaryNN(norm_X_train, y_train)
-# churn_nn.L_layer_model(layer_dimensions = [39, 20, 10, 5, 1], print_cost = True)
-# pred_train = churn_nn.predict(norm_X_train, y_train)
