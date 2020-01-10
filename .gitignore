@@ -2,3 +2,8 @@
 .ipynb_checkpoints/
 __pycache__/
 .DS_Store
+
+# Data Files
+churn-data/
+cat-data/
+raw-ibm-data/
