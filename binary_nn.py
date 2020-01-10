@@ -1,6 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from activation_functions import sigmoid, sigmoid_backward, relu, relu_backward
+from sklearn import preprocessing
+
+np.random.seed(1)
 
 class BinaryNN:
     """Brief class description
@@ -31,6 +34,7 @@ class BinaryNN:
         """
         self.X = X
         self.Y = Y
+        self.parameters = {}
     
     """
     INITIALIZATION
@@ -48,17 +52,16 @@ class BinaryNN:
         -------
         parameters: python dictionary
             Parameters "W1", "b1", ..., "WL", "bL":
-                        Wi : weight matrix of shape (layer_dims[i],
-                                                     layer_dims[i - 1])
-                        bi : bias vector of shape (layer_dims[i], 1)
+                        Wi : weight matrix of shape (layer_dimensions[i],
+                                                     layer_dimensions[i - 1])
+                        bi : bias vector of shape (layer_dimensions[i], 1)
         """
         np.random.seed(1)
         parameters = {}
         L = len(layer_dimensions)
 
         for i in range(1, L):
-            parameters['W' + str(i)] = np.random.randn(layer_dimensions[i],
-                                                       layer_dimensions[i-1]) * 0.01
+            parameters['W' + str(i)] = np.random.randn(layer_dimensions[i], layer_dimensions[i-1]) / np.sqrt(layer_dimensions[i-1])
             parameters['b' + str(i)] = np.zeros((layer_dimensions[i], 1))
         
             assert(parameters['W' + str(i)].shape == (layer_dimensions[i], 
@@ -368,7 +371,7 @@ class BinaryNN:
         return parameters
     
     def L_layer_model(self, layer_dimensions, learning_rate = 0.0075,
-                      num_iterations = 3000, print_cost = False):
+                      num_iterations = 2500, print_cost = False):
         """
         Implements a L-layer neural network: [LINEAR->RELU]*(L-1)->LINEAR->SIGMOID.
         
@@ -417,55 +420,99 @@ class BinaryNN:
             # Print the cost every 100 training example
             if print_cost and i % 100 == 0:
                 print ("Cost after iteration %i: %f" %(i, cost))
-            if print_cost and i % 100 == 0:
+            if i % 100 == 0:
                 costs.append(cost)
-                
+
+        self.parameters = parameters
         # plot the cost
         plt.plot(np.squeeze(costs))
         plt.ylabel('cost')
         plt.xlabel('iterations (per hundreds)')
         plt.title("Learning rate =" + str(learning_rate))
         plt.show()
+            
+    def predict(self, X, y):
+        """
+        This function is used to predict the results of a  L-layer neural network.
         
-        return parameters
-
-        # GRADED FUNCTION: predict
-
-    def predict(self, w, b, X):
-        '''
-        Predict whether the label is 0 or 1 using learned logistic regression parameters (w, b)
+        Arguments:
+        X -- data set of examples you would like to label
+        parameters -- parameters of the trained model
         
-        Parameters
-        ----------
-        w : numpy array
-            Weights
-        b : float
-            Bias constant
-        X : numpy array
-            Data
-        
-        Returns
-        -------
-        Y_prediction : numpy array
-            Vector containing all predictions (0/1) for the samples in X
-        '''
+        Returns:
+        p -- predictions for the given dataset X
+        """
         
         m = X.shape[1]
-        Y_prediction = np.zeros((1,m))
-        w = w.reshape(X.shape[0], 1)
+        n = len(self.parameters) // 2 # number of layers in the neural network
+        p = np.zeros((1,m))
         
-        # Compute vector "A" predicting the probabilities of a cat being present in the picture
-        A = sigmoid(np.dot(w.T, X))
+        # Forward propagation
+        probas, caches = self.L_model_forward(X, self.parameters)
+
         
-        for i in range(A.shape[1]):
-            
-            # Convert probabilities A[0,i] to actual predictions p[0,i]
-            if A[0][i] > 0.5:
-                Y_prediction[0][i] = 1
+        # convert probas to 0/1 predictions
+        for i in range(0, probas.shape[1]):
+            if probas[0,i] > 0.5:
+                p[0,i] = 1
             else:
-                Y_prediction[0][i] = 0
-            pass
+                p[0,i] = 0
         
-        assert(Y_prediction.shape == (1, m))
-        
-        return Y_prediction
+        #print results
+        print("Accuracy: "  + str(np.sum((p == y)/m)))
+            
+        return p
+
+'''
+--------------------------------------------------------------------------------
+'''
+
+# cat_X_train = np.loadtxt("cat_train_x.csv")
+# cat_y_train = np.loadtxt("cat_train_y.csv")
+# cat_X_test = np.loadtxt("cat_test_x.csv")
+# cat_y_test = np.loadtxt("cat_test_y.csv")
+
+# cat_X_train = cat_X_train
+# cat_y_train = cat_y_train.reshape(1, cat_y_train.shape[0])
+# cat_X_test = cat_X_test
+# cat_y_test = cat_y_test.reshape(1, cat_y_test.shape[0])
+
+# cat_layers_dims = [12288, 20, 7, 5, 1]
+
+# cat_nn = BinaryNN(X = cat_X_train, Y = cat_y_train)
+# cat_parameters = cat_nn.L_layer_model(layer_dimensions = cat_layers_dims, print_cost = True)
+
+# Z1 = np.dot(cat_parameters["W1"], cat_X_train) + cat_parameters["b1"]
+# A1 = relu(Z1)[0]
+# Z2 = np.dot(cat_parameters["W2"], A1) + cat_parameters["b2"]
+# A2 = relu(Z2)[0]
+# Z3 = np.dot(cat_parameters["W3"], A2) + cat_parameters["b3"]
+# A3 = relu(Z3)[0]
+# Z4 = np.dot(cat_parameters["W4"], A3) + cat_parameters["b4"]
+# A4 = sigmoid(Z4)[0]
+
+# pred_train = np.where(A4 > 0.5, 1, 0)
+# print(accuracy_score(cat_y_train[0], pred_train[0]))
+
+
+'''
+--------------------------------------------------------------------------------
+'''
+
+# X_train = np.loadtxt("x_train.csv")
+# y_train = np.loadtxt("y_train.csv")
+# X_test = np.loadtxt("x_test.csv")
+# y_test = np.loadtxt("y_test.csv")
+
+# X_train = X_train.T
+# y_train = y_train.reshape(1, y_train.shape[0])
+# X_test = X_test.T
+# y_test = y_test.reshape(1, y_test.shape[0])
+
+# scaler = preprocessing.StandardScaler()
+# scaler.fit(X_train)
+# norm_X_train = scaler.transform(X_train)
+
+# churn_nn = BinaryNN(norm_X_train, y_train)
+# churn_nn.L_layer_model(layer_dimensions = [39, 20, 10, 5, 1], print_cost = True)
+# pred_train = churn_nn.predict(norm_X_train, y_train)
