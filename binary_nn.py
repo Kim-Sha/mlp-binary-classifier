@@ -295,8 +295,6 @@ class BinaryNN:
 
         # Compute loss from aL and y.
         cost = -np.sum((np.multiply(np.log(AL), Y) + np.multiply(np.log(1-AL), 1-Y)))
-
-        cost = np.squeeze(cost)
         assert(cost.shape == ())
         
         return cost
@@ -579,9 +577,9 @@ class BinaryNN:
         plt.title("Learning rate =" + str(learning_rate))
         plt.show()
     
-    def model(self, layer_dimensions, optimizer, learning_rate = 0.0007,
-              mini_batch_size = 64, beta = 0.9, beta1 = 0.9, beta2 = 0.999, 
-              epsilon = 1e-8, num_epochs = 10000, print_cost = True):
+    def fit(self, layer_dimensions, optimizer = "adam", learning_rate = 0.0007,
+            mini_batched = True, mini_batch_size = 64, beta = 0.9, beta1 = 0.9, 
+            beta2 = 0.999, epsilon = 1e-8, num_epochs = 10000, print_cost = True):
         """
         3-layer neural network model which can be run in different optimizer modes.
         
@@ -589,6 +587,8 @@ class BinaryNN:
         ----------
         layer_dimensions : list
         learning_rate : float
+        mini_batched : boolean
+            Whether to implement mini-batches
         mini_batch_size : float
         beta : float
             Momentum hyperparameter
@@ -626,34 +626,40 @@ class BinaryNN:
         # Optimization loop
         for i in range(num_epochs):
             
-            # Define the random minibatches. We increment the seed to reshuffle differently the dataset after each epoch
-            seed = seed + 1
-            minibatches = self.random_mini_batches(self.X, self.Y, mini_batch_size, seed)
             cost_total = 0
-            
-            for minibatch in minibatches:
 
-                # Select a minibatch
-                (minibatch_X, minibatch_Y) = minibatch
+            if mini_batched:
+                # Define the random minibatches. We increment the seed to reshuffle differently the dataset after each epoch
+                seed = seed + 1
+                minibatches = self.random_mini_batches(self.X, self.Y, mini_batch_size, seed)
+                for minibatch in minibatches:
 
-                # Forward propagation
-                # a3, caches = forward_propagation(minibatch_X, parameters)
-                AL, caches = self.L_model_forward(minibatch_X, parameters)
+                    # Select a minibatch
+                    (minibatch_X, minibatch_Y) = minibatch
 
-                # Compute cost and add to the cost total
-                cost_total += self.compute_cost(AL, minibatch_Y)
+                    # Forward propagation: [LINEAR -> RELU]*(L-1) -> LINEAR -> SIGMOID.
+                    AL, caches = self.L_model_forward(minibatch_X, parameters)
 
-                # Backward propagation
-                # grads = backward_propagation(minibatch_X, minibatch_Y, caches)
-                grads = self.L_model_backward(AL, minibatch_Y, caches)
+                    # Compute cost and add to the cost total
+                    cost_total += self.compute_cost(AL, minibatch_Y)
 
-                # Update parameters
-                if optimizer == "gd":
-                    parameters = self.update_parameters(parameters, grads, learning_rate)
-                elif optimizer == "adam":
-                    t = t + 1 # Adam counter
-                    parameters, v, s = self.update_parameters_with_adam(parameters, grads, v, s,
-                                                                t, learning_rate, beta1, beta2,  epsilon)
+                    # Backward propagation
+                    # grads = backward_propagation(minibatch_X, minibatch_Y, caches)
+                    grads = self.L_model_backward(AL, minibatch_Y, caches)
+
+                    # Update parameters
+                    if optimizer == "gd":
+                        parameters = self.update_parameters(parameters, grads, learning_rate)
+                    elif optimizer == "adam":
+                        t = t + 1 # Adam counter
+                        parameters, v, s = self.update_parameters_with_adam(parameters, grads, v, s,
+                                                                    t, learning_rate, beta1, beta2,  epsilon)
+            else:
+                AL, caches = self.L_model_forward(self.X, parameters)
+                cost_total += self.compute_cost(AL, self.Y)
+                grads = self.L_model_backward(AL, self.Y, caches)
+                parameters = self.update_parameters(parameters, grads, learning_rate)
+
             cost_avg = cost_total / m
             
             # Print the cost every 1000 epoch
@@ -664,7 +670,7 @@ class BinaryNN:
         
         self.parameters = parameters
         # plot the cost
-        plt.plot(costs)
+        plt.plot(np.squeeze(costs))
         plt.ylabel('cost')
         plt.xlabel('epochs (per 100)')
         plt.title("Learning rate = " + str(learning_rate))
