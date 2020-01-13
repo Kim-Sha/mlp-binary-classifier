@@ -1,7 +1,7 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from activation_functions import sigmoid, sigmoid_backward, relu, relu_backward
+from propagation_helpers import linear_activation_forward, linear_activation_backward
 from sklearn import preprocessing
 
 class MultiLayerNN:
@@ -148,46 +148,6 @@ class MultiLayerNN:
     FORWARD PROP
     """
 
-    def linear_activation_forward(self, A_prev, W, b, activation):
-        """
-        Implement the forward propagation for the LINEAR->ACTIVATION layer
-
-        Parameters
-        ----------
-        A_prev : numpy array
-            activations from previous layer (or input data): 
-            (size of previous layer, number of examples)
-        W : numpy array
-            weights matrix of shape (current layer size, previous layer size)
-        b : numpy array
-            Bias vector of shape (current layer size, 1)
-        activation : str
-            Activation to be used in this layer, "sigmoid" or "relu"
-
-        Returns
-        -------
-        A : numpy array
-            Output of the activation function 
-        cache : tuple
-            "linear_cache" and "activation_cache" stored for computing 
-            the backward pass efficiently
-        """
-        
-        Z = np.dot(W, A_prev) + b
-        linear_cache = (A_prev, W, b)
-
-        if activation == "sigmoid":
-            A, activation_cache = sigmoid(Z)
-        
-        elif activation == "relu":
-            A, activation_cache = relu(Z)
-        
-        assert(Z.shape == (W.shape[0], A_prev.shape[1]))
-        assert (A.shape == (W.shape[0], A_prev.shape[1]))
-        cache = (linear_cache, activation_cache)
-
-        return A, cache
-
     def forward_prop(self, X, parameters):
         """
         Implement forward propagation for the [LINEAR->RELU]*(L-1)->LINEAR->SIGMOID computation
@@ -213,14 +173,14 @@ class MultiLayerNN:
         # Implement [LINEAR -> RELU]*(L-1). Add "cache" to the "caches" list.
         for l in range(1, L):
             A_prev = A 
-            A, cache = self.linear_activation_forward(A_prev,
+            A, cache = linear_activation_forward(A_prev,
                                                       parameters['W' + str(l)],
                                                       parameters['b' + str(l)],
                                                       activation = "relu")
             caches.append(cache)
         
         # Implement LINEAR -> SIGMOID. Add "cache" to the "caches" list.
-        AL, cache = self.linear_activation_forward(A,
+        AL, cache = linear_activation_forward(A,
                                                    parameters['W' + str(L)],
                                                    parameters['b' + str(L)],
                                                    activation = "sigmoid")
@@ -261,50 +221,6 @@ class MultiLayerNN:
     """
     BACKPROP 
     """
-
-    def linear_activation_backward(self, dA, cache, activation):
-        """
-        Implement the backward propagation for the LINEAR->ACTIVATION layer.
-        
-        Parameters
-        ----------
-        dA : numpy array
-            post-activation gradient for current layer l 
-        cache : tuple
-            (linear_cache, activation_cache) we store for computing backward propagation efficiently
-        activation : str
-            Activation to be used in this layer, "sigmoid" or "relu"
-        
-        Returns
-        -------
-        dA_prev : numpy array
-            Gradient of the cost wrt the activation (of the previous layer l-1), 
-            same shape as A_prev
-        dW : numpy array
-            Gradient of the cost wrt W (current layer l), same shape as W
-        db : numpy array
-            Gradient of the cost wrt b (current layer l), same shape as b
-        """
-        linear_cache, activation_cache = cache
-        
-        if activation == "relu":
-            dZ = relu_backward(dA, activation_cache)
-            
-        elif activation == "sigmoid":
-            dZ = sigmoid_backward(dA, activation_cache)
-        
-        A_prev, W, b = linear_cache
-        m = A_prev.shape[1]
-
-        dW = (1 / m) * np.dot(dZ, A_prev.T)
-        db = (1 / m) * np.sum(dZ, axis = 1, keepdims = True)
-        dA_prev = np.dot(W.T, dZ)
-
-        assert (dA_prev.shape == A_prev.shape)
-        assert (dW.shape == W.shape)
-        assert (db.shape == b.shape)
-
-        return dA_prev, dW, db
     
     def back_prop(self, AL, Y, caches):
         """
@@ -338,7 +254,7 @@ class MultiLayerNN:
         
         # Lth layer (SIGMOID -> LINEAR) gradients. Inputs: "dAL, current_cache". Outputs: "grads["dAL-1"], grads["dWL"], grads["dbL"]
         current_cache = caches[L-1]
-        grads["dA" + str(L-1)], grads["dW" + str(L)], grads["db" + str(L)] = self.linear_activation_backward(dAL,
+        grads["dA" + str(L-1)], grads["dW" + str(L)], grads["db" + str(L)] = linear_activation_backward(dAL,
                                                                                                         current_cache,
                                                                                                         "sigmoid")        
         # Loop from l=L-2 to l=0
@@ -346,7 +262,7 @@ class MultiLayerNN:
             # lth layer: (RELU -> LINEAR) gradients.
             # Inputs: "grads["dA" + str(l + 1)], current_cache". Outputs: "grads["dA" + str(l)] , grads["dW" + str(l + 1)] , grads["db" + str(l + 1)] 
             current_cache = caches[l]
-            dA_prev_temp, dW_temp, db_temp = self.linear_activation_backward(grads["dA" + str(l + 1)],
+            dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads["dA" + str(l + 1)],
                                                                         current_cache,
                                                                         "relu")
             grads["dA" + str(l)] = dA_prev_temp
@@ -386,7 +302,7 @@ class MultiLayerNN:
         return parameters
     
     def adam_update(self, parameters, grads, v, s, t, learning_rate = 0.01,
-                                    beta1 = 0.9, beta2 = 0.999,  epsilon = 1e-8):
+                    beta1 = 0.9, beta2 = 0.999,  epsilon = 1e-8):
         """
         Update parameters using Adam
         
@@ -418,8 +334,8 @@ class MultiLayerNN:
         """
         
         L = len(parameters) // 2  # number of layers in the neural networks
-        v_corrected = {}          # Initializing first moment estimate
-        s_corrected = {}          # Initializing second moment estimate
+        v_new = {}          # Initializing first moment estimate
+        s_new = {}          # Initializing second moment estimate
         
         # Perform Adam update on all parameters
         for l in range(L):
@@ -427,21 +343,21 @@ class MultiLayerNN:
             v["dW" + str(l+1)] = beta1 * v["dW" + str(l+1)] + (1 - beta1) * grads["dW" + str(l+1)]
             v["db" + str(l+1)] = beta1 * v["db" + str(l+1)] + (1 - beta1) * grads["db" + str(l+1)]
 
-            # Compute bias-corrected first moment estimate. Inputs: "v, beta1, t". Output: "v_corrected".
-            v_corrected["dW" + str(l+1)] = v["dW" + str(l+1)] / (1 - np.power(beta1, t))
-            v_corrected["db" + str(l+1)] = v["db" + str(l+1)] / (1 - np.power(beta1, t))
+            # Compute bias-corrected first moment estimate. Inputs: "v, beta1, t". Output: "v_new".
+            v_new["dW" + str(l+1)] = v["dW" + str(l+1)] / (1 - np.power(beta1, t))
+            v_new["db" + str(l+1)] = v["db" + str(l+1)] / (1 - np.power(beta1, t))
 
             # Moving average of the squared gradients. Inputs: "s, grads, beta2". Output: "s".
             s["dW" + str(l+1)] = beta2 * s["dW" + str(l+1)] + (1 - beta2) * np.power(grads["dW" + str(l+1)], 2)
             s["db" + str(l+1)] = beta2 * s["db" + str(l+1)] + (1 - beta2) * np.power(grads["db" + str(l+1)], 2)
 
-            # Compute bias-corrected second raw moment estimate. Inputs: "s, beta2, t". Output: "s_corrected".
-            s_corrected["dW" + str(l+1)] = s["dW" + str(l+1)] / (1 - np.power(beta2, t))
-            s_corrected["db" + str(l+1)] = s["db" + str(l+1)] / (1 - np.power(beta2, t))
+            # Compute bias-corrected second raw moment estimate. Inputs: "s, beta2, t". Output: "s_new".
+            s_new["dW" + str(l+1)] = s["dW" + str(l+1)] / (1 - np.power(beta2, t))
+            s_new["db" + str(l+1)] = s["db" + str(l+1)] / (1 - np.power(beta2, t))
 
-            # Update parameters. Inputs: "parameters, learning_rate, v_corrected, s_corrected, epsilon". Output: "parameters".
-            parameters["W" + str(l+1)] = parameters["W" + str(l+1)] - learning_rate * v_corrected["dW" + str(l+1)] / (np.sqrt(s_corrected["dW" + str(l+1)]) + epsilon)
-            parameters["b" + str(l+1)] = parameters["b" + str(l+1)] - learning_rate * v_corrected["db" + str(l+1)] / (np.sqrt(s_corrected["db" + str(l+1)]) + epsilon)
+            # Update parameters. Inputs: "parameters, learning_rate, v_new, s_new, epsilon". Output: "parameters".
+            parameters["W" + str(l+1)] = parameters["W" + str(l+1)] - learning_rate * v_new["dW" + str(l+1)] / (np.sqrt(s_new["dW" + str(l+1)]) + epsilon)
+            parameters["b" + str(l+1)] = parameters["b" + str(l+1)] - learning_rate * v_new["db" + str(l+1)] / (np.sqrt(s_new["db" + str(l+1)]) + epsilon)
 
         return parameters, v, s
 
@@ -449,9 +365,10 @@ class MultiLayerNN:
     MODEL
     """
     
-    def fit_binary(self, layer_dimensions, optimizer = "adam", learning_rate = 0.0007,
-                   minibatched = True, minibatch_size = 64, beta = 0.9, beta1 = 0.9, 
-                   beta2 = 0.999, epsilon = 1e-8, num_epochs = 10000, print_cost = True):
+    def fit_binary(self, layer_dimensions, optimizer = "adam", learning_rate = 0.01,
+                   learning_decay_rate = 0.001, minibatched = True, minibatch_size = 64, 
+                   beta = 0.9, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8, 
+                   num_epochs = 10000, print_cost = True):
         """
         L-layer neural network model which can be run in different optimizer modes.
         
@@ -461,6 +378,8 @@ class MultiLayerNN:
         optimizer : string {"gd", "adam"}
             Optimization algorithm to use
         learning_rate : float
+        learning_decay_rate : float
+            Rate at which to decay the learning_rate
         minibatched : boolean
             Whether to implement mini-batches
         minibatch_size : float
@@ -484,6 +403,7 @@ class MultiLayerNN:
 
         L = len(layer_dimensions) # number of layers in the neural networks
         costs = []                # to keep track of the cost
+        learning_rates = []       # to keep track of decaying learning rate
         t = 0                     # initializing counter required for Adam update
         seed = 10
         m = self.X.shape[1]       # number of training examples
@@ -537,13 +457,17 @@ class MultiLayerNN:
                 grads = self.back_prop(AL, self.Y, caches)
                 parameters = self.gd_update(parameters, grads, learning_rate)
 
-            cost_avg = cost_total / m
-            
             # Print the cost every 1000 epoch
+            cost_avg = cost_total / m
             if print_cost and i % 1000 == 0: 
                 print("Cost after epoch %i: %f" %(i, cost_avg))
+                print("Learning rate after epoch %i: %f" %(i, learning_rate))
             if i % 100 == 0:
                 costs.append(cost_avg)
+                learning_rates.append(learning_rate)
+
+            # Decay learning_rate
+            learning_rate = learning_rate / (1 + learning_decay_rate * i)
         
         # Update instance attributes
         self.final_cost = cost_avg
