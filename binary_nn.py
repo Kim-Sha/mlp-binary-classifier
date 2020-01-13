@@ -294,12 +294,12 @@ class BinaryNN:
         m = Y.shape[1]
 
         # Compute loss from aL and y.
-        cost = -(1/m)*np.sum((np.multiply(np.log(AL), Y) + np.multiply(np.log(1-AL), 1-Y)))
-        cost_total = np.sum(cost)
-        # cost = np.squeeze(cost)
-        # assert(cost.shape == ())
+        cost = -np.sum((np.multiply(np.log(AL), Y) + np.multiply(np.log(1-AL), 1-Y)))
+
+        cost = np.squeeze(cost)
+        assert(cost.shape == ())
         
-        return cost_total
+        return cost
     
     """
     BACKPROP 
@@ -703,9 +703,9 @@ class BinaryNN:
         return p
 
 
-X_train = np.loadtxt("predict-moons/data-moons/x_train.csv")
-y_train = np.loadtxt("predict-moons/data-moons/y_train.csv")
-y_train = y_train.reshape(1, y_train.shape[0])
-moons_nn = BinaryNN(X = X_train, Y = y_train)
-moons_nn.model(layer_dimensions = [2, 5, 2, 1],
-               optimizer = "adam")
+# X_train = np.loadtxt("predict-moons/data-moons/x_train.csv")
+# y_train = np.loadtxt("predict-moons/data-moons/y_train.csv")
+# y_train = y_train.reshape(1, y_train.shape[0])
+# moons_nn = BinaryNN(X = X_train, Y = y_train)
+# moons_nn.model(layer_dimensions = [2, 5, 2, 1],
+#                optimizer = "adam")
