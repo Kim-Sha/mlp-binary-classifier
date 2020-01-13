@@ -591,9 +591,9 @@ class MultiLayerNN:
         return p
 
 
-X_train = np.loadtxt("predict-moons/data-moons/x_train.csv")
-y_train = np.loadtxt("predict-moons/data-moons/y_train.csv")
-y_train = y_train.reshape(1, y_train.shape[0])
-moons_nn = MultiLayerNN(X = X_train, Y = y_train)
-moons_nn.fit_binary(layer_dimensions = [2, 5, 2, 1],
-                    optimizer = "adam")
+# X_train = np.loadtxt("predict-moons/data-moons/x_train.csv")
+# y_train = np.loadtxt("predict-moons/data-moons/y_train.csv")
+# y_train = y_train.reshape(1, y_train.shape[0])
+# moons_nn = MultiLayerNN(X = X_train, Y = y_train)
+# moons_nn.fit_binary(layer_dimensions = [2, 5, 2, 1],
+#                     optimizer = "adam")
