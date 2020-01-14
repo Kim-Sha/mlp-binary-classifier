@@ -24,6 +24,7 @@ class MultiLayerNN:
         """
         self.X = X
         self.Y = Y
+        self.sample_size = X.shape[1]
         self.parameters = {}
         self.final_cost = 0
     
@@ -47,7 +48,6 @@ class MultiLayerNN:
                                                      layer_dimensions[i - 1])
                         bi : bias vector of shape (layer_dimensions[i], 1)
         """
-        np.random.seed(3)
         parameters = {}
         L = len(layer_dimensions)
 
@@ -209,14 +209,15 @@ class MultiLayerNN:
 
         Returns
         -------
-        cost : float
+        total_cost : float
             cross-entropy cost
         """
         # Compute loss from aL and y.
-        cost = -np.sum((np.multiply(np.log(AL), Y) + np.multiply(np.log(1-AL), 1-Y)))
-        assert(cost.shape == ())
+        log_cost = np.multiply(-np.log(AL), Y) + np.multiply(-np.log(1 - AL), 1 - Y)
+        total_cost = np.sum(log_cost)
+        assert(total_cost.shape == ())
         
-        return cost
+        return total_cost
     
     """
     BACKPROP 
@@ -365,8 +366,8 @@ class MultiLayerNN:
     MODEL
     """
     
-    def fit_binary(self, layer_dimensions, optimizer = "adam", learning_rate = 0.01,
-                   learning_decay_rate = 0.001, minibatched = True, minibatch_size = 64, 
+    def fit_binary(self, layer_dimensions, optimizer = "adam", learning_rate = 0.025,
+                   learning_decay_rate = 1e-7, minibatched = True, minibatch_size = 64, 
                    beta = 0.9, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8, 
                    num_epochs = 10000, print_cost = True):
         """
