@@ -5,17 +5,20 @@ from propagation_helpers import linear_activation_forward, linear_activation_bac
 from sklearn import preprocessing
 
 class MultiLayerNN:
-    """Brief class description
-    
-    Some more extensive description
+    """
+    Multi-layer perceptron (MLP) / deep feedforward neural network (DFFNN) to 
+    tackle binary classification problems.
     
     Attributes
     ----------
     X : numpy array
-        Purpose of attr1.
+        Input feature set used in training
     Y : numpy array
-        Purpose of attr2.
+        Labeled outputs to train NN against, given the set of input features X
     parameters : dict
+        Tracker for the weight and bias terms learned by the NN
+    final_cost : float
+        Tracker for the cost computed from the loss function
     """
     
     def __init__(self, X, Y):
@@ -52,7 +55,8 @@ class MultiLayerNN:
         L = len(layer_dimensions)
 
         for i in range(1, L):
-            parameters['W' + str(i)] = np.random.randn(layer_dimensions[i], layer_dimensions[i-1]) * np.sqrt(2 / layer_dimensions[i-1])
+            parameters['W' + str(i)] = np.random.randn(layer_dimensions[i],
+                layer_dimensions[i - 1]) * np.sqrt(2 / layer_dimensions[i - 1])
             parameters['b' + str(i)] = np.zeros((layer_dimensions[i], 1))
         
             assert(parameters['W' + str(i)].shape == (layer_dimensions[i], 
@@ -61,44 +65,40 @@ class MultiLayerNN:
         
         return parameters
     
-    def initialize_adam_parameters(self, parameters) :
+    def initialize_adam_parameters(self) :
         """
         Initializes v and s as two python dictionaries with:
-                    - keys: "dW1", "db1", ..., "dWL", "dbL" 
-                    - values: numpy arrays of zeros of the same shape as the corresponding gradients/parameters.
-        
-        Parameters
-        ----------
-        parameters : dict
-            parameters["W" + str(l)] = Wl; parameters["b" + str(l)] = bl
+            - keys: "dW1", "db1", ..., "dWL", "dbL" 
+            - values: numpy arrays of zeros of the same shape as the 
+                      corresponding gradients/parameters.
         
         Returns
         ------- 
         v : dict
             Exponentially weighted average of the gradients.
-                        v["dW" + str(l)] = ...
-                        v["db" + str(l)] = ...
+                v["dW" + str(l)] = ...
+                v["db" + str(l)] = ...
         s : dict
             Exponentially weighted average of the squared gradients.
-                        s["dW" + str(l)] = ...
-                        s["db" + str(l)] = ...
+                s["dW" + str(l)] = ...
+                s["db" + str(l)] = ...
 
         """
         
-        L = len(parameters) // 2 # number of layers in the neural networks
+        L = len(self.parameters) // 2 # number of layers in the neural networks
         v = {}
         s = {}
         
         # Initialize v, s. Input: "parameters". Outputs: "v, s".
         for l in range(L):
-            v["dW" + str(l+1)] = np.zeros(parameters["W" + str(l+1)].shape)
-            v["db" + str(l+1)] = np.zeros(parameters["b" + str(l+1)].shape)
-            s["dW" + str(l+1)] = np.zeros(parameters["W" + str(l+1)].shape)
-            s["db" + str(l+1)] = np.zeros(parameters["b" + str(l+1)].shape)
+            v["dW" + str(l+1)] = np.zeros(self.parameters["W" + str(l+1)].shape)
+            v["db" + str(l+1)] = np.zeros(self.parameters["b" + str(l+1)].shape)
+            s["dW" + str(l+1)] = np.zeros(self.parameters["W" + str(l+1)].shape)
+            s["db" + str(l+1)] = np.zeros(self.parameters["b" + str(l+1)].shape)
         
         return v, s
 
-    def initialize_minibatches(self, X, Y, minibatch_size = 64, seed=0):
+    def initialize_minibatches(self, minibatch_size = 64, seed = 0):
         """
         Creates a list of random minibatches from (X, Y)
         
@@ -118,16 +118,16 @@ class MultiLayerNN:
         """
         
         np.random.seed(seed)
-        m = X.shape[1] # number of training examples
+        m = self.X.shape[1] # number of training examples
         minibatches = []
             
-        # Step 1: Shuffle (X, Y)
+        # Shuffle (X, Y)
         permutation = list(np.random.permutation(m))
-        shuffled_X = X[:, permutation]
-        shuffled_Y = Y[:, permutation].reshape((1,m))
+        shuffled_X = self.X[:, permutation]
+        shuffled_Y = self.Y[:, permutation].reshape((1, m))
 
-        # Step 2: Partition (shuffled_X, shuffled_Y). Minus the end case.
-        num_complete_minibatches = math.floor(m/minibatch_size) # number of mini batches of size minibatch_size in your partitionning
+        # Partition (shuffled_X, shuffled_Y). Minus the end case.
+        num_complete_minibatches = math.floor(m / minibatch_size)
         for k in range(0, num_complete_minibatches):
             minibatch_X = shuffled_X[:, k * minibatch_size : (k + 1) * minibatch_size]
             minibatch_Y = shuffled_Y[:, k * minibatch_size : (k + 1) * minibatch_size]
@@ -367,9 +367,9 @@ class MultiLayerNN:
     """
     
     def fit_binary(self, layer_dimensions, optimizer = "adam", learning_rate = 0.025,
-                   learning_decay_rate = 1e-7, minibatched = True, minibatch_size = 64, 
-                   beta = 0.9, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8, 
-                   num_epochs = 10000, print_cost = True):
+                   learning_decay_rate = 1e-7, minibatched = True, 
+                   minibatch_size = 64, beta = 0.9, beta1 = 0.9, beta2 = 0.999,
+                   epsilon = 1e-8, num_epochs = 10000, print_cost = True):
         """
         L-layer neural network model which can be run in different optimizer modes.
         
@@ -401,6 +401,14 @@ class MultiLayerNN:
         -------
         parameters : dict
         """
+        # Check that layer dimensions are passed in correctly
+        if layer_dimensions[0] != self.X.shape[0]:
+            raise ValueError('''Incorrect dimensions for input layer. Condition:\
+                layer_dimensions[0] = X_train.shape[0] must be satisfied.''')
+        if layer_dimensions[-1] != 1:
+            raise ValueError('''Incorrect dimensions for output layer of binary\
+                classifier. Condition: layer_dimesnsions[-1] = 1 must be \
+                    satisfied for binary classifier''')
 
         L = len(layer_dimensions) # number of layers in the neural networks
         costs = []                # to keep track of the cost
@@ -410,13 +418,13 @@ class MultiLayerNN:
         m = self.X.shape[1]       # number of training examples
         
         # Initialize parameters
-        parameters = self.initialize_parameters(layer_dimensions)
+        self.parameters = self.initialize_parameters(layer_dimensions)
 
         # Initialize the optimizer
         if optimizer == "gd":
-            pass # no initialization required for gradient descent
+            pass # no optimizer used for vanilla gradient descent
         elif optimizer == "adam":
-            v, s = self.initialize_adam_parameters(parameters)
+            v, s = self.initialize_adam_parameters()
         else:
             raise ValueError("The only supported optimizer modes are 'gd' and 'adam'.")
         
@@ -427,9 +435,10 @@ class MultiLayerNN:
 
             if minibatched:
 
-                # Define the random minibatches. We increment the seed to reshuffle differently the dataset after each epoch
+                # Define the random minibatches. We increment the seed to 
+                # reshuffle differently the dataset after each epoch
                 seed = seed + 1
-                minibatches = self.initialize_minibatches(self.X, self.Y, minibatch_size, seed)
+                minibatches = self.initialize_minibatches(minibatch_size, seed)
 
                 for minibatch in minibatches:
 
@@ -437,7 +446,7 @@ class MultiLayerNN:
                     (minibatch_X, minibatch_Y) = minibatch
 
                     # Forward propagation: [LINEAR -> RELU]*(L-1) -> LINEAR -> SIGMOID.
-                    AL, caches = self.forward_prop(minibatch_X, parameters)
+                    AL, caches = self.forward_prop(minibatch_X, self.parameters)
 
                     # Compute cost and add to the cost total
                     cost_total += self.compute_cost(AL, minibatch_Y)
@@ -447,16 +456,17 @@ class MultiLayerNN:
 
                     # Update parameters
                     if optimizer == "gd":
-                        parameters = self.gd_update(parameters, grads, learning_rate)
+                        self.parameters = self.gd_update(self.parameters, grads,
+                                                         learning_rate)
                     elif optimizer == "adam":
                         t = t + 1 # Adam counter
-                        parameters, v, s = self.adam_update(parameters, grads, v, s,
-                                                            t, learning_rate, beta1, beta2,  epsilon)
+                        self.parameters, v, s = self.adam_update(self.parameters,
+                            grads, v, s, t, learning_rate, beta1, beta2, epsilon)
             else:
-                AL, caches = self.forward_prop(self.X, parameters)
+                AL, caches = self.forward_prop(self.X, self.parameters)
                 cost_total += self.compute_cost(AL, self.Y)
                 grads = self.back_prop(AL, self.Y, caches)
-                parameters = self.gd_update(parameters, grads, learning_rate)
+                self.parameters = self.gd_update(self.parameters, grads, learning_rate)
 
             # Print the cost every 1000 epoch
             cost_avg = cost_total / m
@@ -472,7 +482,6 @@ class MultiLayerNN:
         
         # Update instance attributes
         self.final_cost = cost_avg
-        self.parameters = parameters
 
         # plot the cost
         plt.plot(np.squeeze(costs))
