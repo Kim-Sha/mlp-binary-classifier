@@ -17,7 +17,6 @@ class MultiLayerNN:
     Y : numpy array
         Labeled outputs of shape (1, number of examples) to train NN against,
         given the set of input features X
-        
     parameters : dict
         Tracker for the weight and bias terms learned by the NN
     final_cost : float
@@ -30,7 +29,6 @@ class MultiLayerNN:
         """
         self.X = X
         self.Y = Y
-        self.sample_size = X.shape[1]
         self.parameters = {}
         self.final_cost = 0
     
@@ -39,8 +37,7 @@ class MultiLayerNN:
     """
 
     def initialize_parameters(self, layer_dimensions):
-        """Example of docstring on the __init__ method.
-        
+        """
         Parameters
         ----------
         layer_dimensions : list
@@ -173,16 +170,16 @@ class MultiLayerNN:
         for l in range(1, L):
             A_prev = A 
             A, cache = linear_activation_forward(A_prev,
-                                                      parameters['W' + str(l)],
-                                                      parameters['b' + str(l)],
-                                                      activation = "relu")
+                                                 parameters['W' + str(l)],
+                                                 parameters['b' + str(l)],
+                                                 activation = "relu")
             caches.append(cache)
         
         # Implement LINEAR -> SIGMOID. Add "cache" to the "caches" list.
         AL, cache = linear_activation_forward(A,
-                                                   parameters['W' + str(L)],
-                                                   parameters['b' + str(L)],
-                                                   activation = "sigmoid")
+                                              parameters['W' + str(L)],
+                                              parameters['b' + str(L)],
+                                              activation = "sigmoid")
         caches.append(cache)
         
         assert(AL.shape == (1, X.shape[1]))
@@ -239,50 +236,50 @@ class MultiLayerNN:
         
         Returns
         -------
-        grads : dict
+        gradients : dict
             A dictionary with the gradients
-                grads["dA" + str(l)] = ... 
-                grads["dW" + str(l)] = ...
-                grads["db" + str(l)] = ... 
+                gradients["dA" + str(l)] = ... 
+                gradients["dW" + str(l)] = ...
+                gradients["db" + str(l)] = ... 
         """
-        grads = {}
+        gradients = {}
         L = len(caches) # the number of layers
         Y = Y.reshape(AL.shape) # after this line, Y is the same shape as AL
         
         # Initializing the backpropagation
         dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
         
-        # Lth layer (SIGMOID -> LINEAR) gradients. Inputs: "dAL, current_cache". Outputs: "grads["dAL-1"], grads["dWL"], grads["dbL"]
+        # Lth layer (SIGMOID -> LINEAR) gradients. Inputs: "dAL, current_cache". Outputs: "gradients["dAL-1"], gradients["dWL"], gradients["dbL"]
         current_cache = caches[L-1]
-        grads["dA" + str(L-1)], grads["dW" + str(L)], grads["db" + str(L)] = linear_activation_backward(dAL,
+        gradients["dA" + str(L-1)], gradients["dW" + str(L)], gradients["db" + str(L)] = linear_activation_backward(dAL,
                                                                                                         current_cache,
                                                                                                         "sigmoid")        
         # Loop from l=L-2 to l=0
         for l in reversed(range(L-1)):
             # lth layer: (RELU -> LINEAR) gradients.
-            # Inputs: "grads["dA" + str(l + 1)], current_cache". Outputs: "grads["dA" + str(l)] , grads["dW" + str(l + 1)] , grads["db" + str(l + 1)] 
+            # Inputs: "gradients["dA" + str(l + 1)], current_cache". Outputs: "gradients["dA" + str(l)] , gradients["dW" + str(l + 1)] , gradients["db" + str(l + 1)] 
             current_cache = caches[l]
-            dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads["dA" + str(l + 1)],
+            dA_prev_temp, dW_temp, db_temp = linear_activation_backward(gradients["dA" + str(l + 1)],
                                                                         current_cache,
                                                                         "relu")
-            grads["dA" + str(l)] = dA_prev_temp
-            grads["dW" + str(l + 1)] = dW_temp
-            grads["db" + str(l + 1)] = db_temp
+            gradients["dA" + str(l)] = dA_prev_temp
+            gradients["dW" + str(l + 1)] = dW_temp
+            gradients["db" + str(l + 1)] = db_temp
 
-        return grads
+        return gradients
     
     """
     UPDATE PARAMETERS
     """
 
-    def gd_update(self, parameters, grads, learning_rate):
+    def gd_update(self, parameters, gradients, learning_rate):
         """
         Update parameters using gradient descent
         
         Parameters
         ----------
         parameters : dict
-        grads : dict
+        gradients : dict
             Gradients output by back_prop()
         
         Returns
@@ -297,11 +294,11 @@ class MultiLayerNN:
 
         # Update rule for each parameter
         for l in range(L):
-            parameters["W" + str(l+1)] -= learning_rate * grads["dW" + str(l+1)]
-            parameters["b" + str(l+1)] -= learning_rate * grads["db" + str(l+1)]
+            parameters["W" + str(l+1)] -= learning_rate * gradients["dW" + str(l+1)]
+            parameters["b" + str(l+1)] -= learning_rate * gradients["db" + str(l+1)]
         return parameters
     
-    def adam_update(self, parameters, grads, v, s, t, learning_rate = 0.01,
+    def adam_update(self, parameters, gradients, v, s, adam_counter, learning_rate = 0.01,
                     beta1 = 0.9, beta2 = 0.999,  epsilon = 1e-8):
         """
         Update parameters using Adam
@@ -311,9 +308,9 @@ class MultiLayerNN:
         parameters : dict
             parameters['W' + str(l)] = Wl
             parameters['b' + str(l)] = bl
-        grads : dict
-            grads['dW' + str(l)] = dWl
-            grads['db' + str(l)] = dbl
+        gradients : dict
+            gradients['dW' + str(l)] = dWl
+            gradients['db' + str(l)] = dbl
         v : dict
             Adam variable, moving average of the first gradient
         s : dict
@@ -339,21 +336,21 @@ class MultiLayerNN:
         
         # Perform Adam update on all parameters
         for l in range(L):
-            # Moving average of the gradients. Inputs: "v, grads, beta1". Output: "v".
-            v["dW" + str(l+1)] = beta1 * v["dW" + str(l+1)] + (1 - beta1) * grads["dW" + str(l+1)]
-            v["db" + str(l+1)] = beta1 * v["db" + str(l+1)] + (1 - beta1) * grads["db" + str(l+1)]
+            # Moving average of the gradients. Inputs: "v, gradients, beta1". Output: "v".
+            v["dW" + str(l+1)] = beta1 * v["dW" + str(l+1)] + (1 - beta1) * gradients["dW" + str(l+1)]
+            v["db" + str(l+1)] = beta1 * v["db" + str(l+1)] + (1 - beta1) * gradients["db" + str(l+1)]
 
-            # Compute bias-corrected first moment estimate. Inputs: "v, beta1, t". Output: "v_new".
-            v_new["dW" + str(l+1)] = v["dW" + str(l+1)] / (1 - np.power(beta1, t))
-            v_new["db" + str(l+1)] = v["db" + str(l+1)] / (1 - np.power(beta1, t))
+            # Compute bias-corrected first moment estimate. Inputs: "v, beta1, adam_counter". Output: "v_new".
+            v_new["dW" + str(l+1)] = v["dW" + str(l+1)] / (1 - np.power(beta1, adam_counter))
+            v_new["db" + str(l+1)] = v["db" + str(l+1)] / (1 - np.power(beta1, adam_counter))
 
-            # Moving average of the squared gradients. Inputs: "s, grads, beta2". Output: "s".
-            s["dW" + str(l+1)] = beta2 * s["dW" + str(l+1)] + (1 - beta2) * np.power(grads["dW" + str(l+1)], 2)
-            s["db" + str(l+1)] = beta2 * s["db" + str(l+1)] + (1 - beta2) * np.power(grads["db" + str(l+1)], 2)
+            # Moving average of the squared gradients. Inputs: "s, gradients, beta2". Output: "s".
+            s["dW" + str(l+1)] = beta2 * s["dW" + str(l+1)] + (1 - beta2) * np.power(gradients["dW" + str(l+1)], 2)
+            s["db" + str(l+1)] = beta2 * s["db" + str(l+1)] + (1 - beta2) * np.power(gradients["db" + str(l+1)], 2)
 
-            # Compute bias-corrected second raw moment estimate. Inputs: "s, beta2, t". Output: "s_new".
-            s_new["dW" + str(l+1)] = s["dW" + str(l+1)] / (1 - np.power(beta2, t))
-            s_new["db" + str(l+1)] = s["db" + str(l+1)] / (1 - np.power(beta2, t))
+            # Compute bias-corrected second raw moment estimate. Inputs: "s, beta2, adam_counter". Output: "s_new".
+            s_new["dW" + str(l+1)] = s["dW" + str(l+1)] / (1 - np.power(beta2, adam_counter))
+            s_new["db" + str(l+1)] = s["db" + str(l+1)] / (1 - np.power(beta2, adam_counter))
 
             # Update parameters. Inputs: "parameters, learning_rate, v_new, s_new, epsilon". Output: "parameters".
             parameters["W" + str(l+1)] = parameters["W" + str(l+1)] - learning_rate * v_new["dW" + str(l+1)] / (np.sqrt(s_new["dW" + str(l+1)]) + epsilon)
@@ -412,8 +409,8 @@ class MultiLayerNN:
         L = len(layer_dimensions) # number of layers in the neural networks
         costs = []                # to keep track of the cost
         learning_rates = []       # to keep track of decaying learning rate
-        t = 0                     # initializing counter required for Adam update
-        seed = 10
+        adam_counter = 0                     # initializing counter required for Adam update
+        seed = 0
         m = self.X.shape[1]       # number of training examples
         
         # Initialize parameters
@@ -451,21 +448,22 @@ class MultiLayerNN:
                     cost_total += self.compute_cost(AL, minibatch_Y)
 
                     # Backward propagation
-                    grads = self.back_prop(AL, minibatch_Y, caches)
+                    gradients = self.back_prop(AL, minibatch_Y, caches)
 
                     # Update parameters
                     if optimizer == "gd":
-                        self.parameters = self.gd_update(self.parameters, grads,
+                        self.parameters = self.gd_update(self.parameters, gradients,
                                                          learning_rate)
                     elif optimizer == "adam":
-                        t = t + 1 # Adam counter
+                        adam_counter += 1 # Adam counter
                         self.parameters, v, s = self.adam_update(self.parameters,
-                            grads, v, s, t, learning_rate, beta1, beta2, epsilon)
+                            gradients, v, s, adam_counter, learning_rate,
+                            beta1, beta2, epsilon)
             else:
                 AL, caches = self.forward_prop(self.X, self.parameters)
                 cost_total += self.compute_cost(AL, self.Y)
-                grads = self.back_prop(AL, self.Y, caches)
-                self.parameters = self.gd_update(self.parameters, grads, learning_rate)
+                gradients = self.back_prop(AL, self.Y, caches)
+                self.parameters = self.gd_update(self.parameters, gradients, learning_rate)
 
             # Print the cost every 1000 epoch
             cost_avg = cost_total / m
