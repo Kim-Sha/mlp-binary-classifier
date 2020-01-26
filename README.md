@@ -1,2 +1,2 @@
-# mlp-binary-classifier
-Simple neural network with a binary classifier to predict attrition rates for the IBM dataset
+# dffnn-binary-classifier
+Implementation of a generic deep feedforward neural network (DFFNN), or multi-layer perceptron (MLP), to tackle binary classification problems.
