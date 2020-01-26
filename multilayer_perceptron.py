@@ -2,6 +2,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 from propagation_helpers import linear_activation_forward, linear_activation_backward
+from loss_function import compute_cost, regularized_cost
 from sklearn import preprocessing
 
 class MultiLayerNN:
@@ -185,41 +186,12 @@ class MultiLayerNN:
         assert(AL.shape == (1, X.shape[1]))
                 
         return AL, caches
-
-    """
-    COST FUNCTION
-    """
-
-    def compute_cost(self, AL, Y):
-        """
-        Implement the cost function defined by equation (7).
-
-        Parameters
-        ----------
-        AL : numpy array
-            Probability vector corresponding to your label predictions 
-            with shape (1, number of examples)
-        Y : numpy array
-            True "label" vector (for example: containing 0 if non-cat, 1 if cat) 
-            with shape (1, number of examples)
-
-        Returns
-        -------
-        total_cost : float
-            cross-entropy cost
-        """
-        # Compute loss from aL and y.
-        log_cost = np.multiply(-np.log(AL), Y) + np.multiply(-np.log(1 - AL), 1 - Y)
-        total_cost = np.sum(log_cost)
-        assert(total_cost.shape == ())
-        
-        return total_cost
     
     """
     BACKPROP 
     """
     
-    def back_prop(self, AL, Y, caches):
+    def back_prop(self, AL, Y, caches, lambd):
         """
         Implement the backward propagation for the [LINEAR->RELU] * (L-1) -> LINEAR -> SIGMOID group
         
@@ -253,7 +225,8 @@ class MultiLayerNN:
         current_cache = caches[L-1]
         gradients["dA" + str(L-1)], gradients["dW" + str(L)], gradients["db" + str(L)] = linear_activation_backward(dAL,
                                                                                                         current_cache,
-                                                                                                        "sigmoid")        
+                                                                                                        "sigmoid",
+                                                                                                        lambd)        
         # Loop from l=L-2 to l=0
         for l in reversed(range(L-1)):
             # lth layer: (RELU -> LINEAR) gradients.
@@ -261,7 +234,8 @@ class MultiLayerNN:
             current_cache = caches[l]
             dA_prev_temp, dW_temp, db_temp = linear_activation_backward(gradients["dA" + str(l + 1)],
                                                                         current_cache,
-                                                                        "relu")
+                                                                        "relu",
+                                                                        lambd)
             gradients["dA" + str(l)] = dA_prev_temp
             gradients["dW" + str(l + 1)] = dW_temp
             gradients["db" + str(l + 1)] = db_temp
@@ -362,8 +336,8 @@ class MultiLayerNN:
     MODEL
     """
     
-    def fit_binary(self, layer_dimensions, optimizer = "adam", learning_rate = 0.025,
-                   learning_decay_rate = 1e-7, minibatched = True, 
+    def fit_binary(self, layer_dimensions, lambd = 0.1, optimizer = "adam",
+                   learning_rate = 0.025, learning_decay_rate = 1e-7, minibatched = True, 
                    minibatch_size = 64, beta = 0.9, beta1 = 0.9, beta2 = 0.999,
                    epsilon = 1e-8, num_epochs = 10000, print_cost = True):
         """
@@ -445,10 +419,10 @@ class MultiLayerNN:
                     AL, caches = self.forward_prop(minibatch_X, self.parameters)
 
                     # Compute cost and add to the cost total
-                    cost_total += self.compute_cost(AL, minibatch_Y)
+                    cost_total += regularized_cost(AL, minibatch_Y, self.parameters, lambd)
 
                     # Backward propagation
-                    gradients = self.back_prop(AL, minibatch_Y, caches)
+                    gradients = self.back_prop(AL, minibatch_Y, caches, lambd)
 
                     # Update parameters
                     if optimizer == "gd":
@@ -461,8 +435,8 @@ class MultiLayerNN:
                             beta1, beta2, epsilon)
             else:
                 AL, caches = self.forward_prop(self.X, self.parameters)
-                cost_total += self.compute_cost(AL, self.Y)
-                gradients = self.back_prop(AL, self.Y, caches)
+                cost_total += regularized_cost(AL, self.Y, self.parameters, lambd)
+                gradients = self.back_prop(AL, self.Y, caches, lambd)
                 self.parameters = self.gd_update(self.parameters, gradients, learning_rate)
 
             # Print the cost every 1000 epoch
