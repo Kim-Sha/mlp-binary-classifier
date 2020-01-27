@@ -20,7 +20,7 @@ def compute_cost(AL, Y):
         """
         # Compute loss from aL and y.
         log_cost = np.multiply(-np.log(AL), Y) + np.multiply(-np.log(1 - AL), 1 - Y)
-        total_cost = np.sum(log_cost)
+        total_cost = np.nansum(log_cost)
         assert(total_cost.shape == ())
         
         return total_cost
@@ -45,7 +45,7 @@ def regularized_cost(AL, Y, parameters, lambd):
         value of the regularized loss function (formula (2))
     """
     cost_cross_entropy = compute_cost(AL, Y) # This gives you the cross-entropy part of the cost
-    cost_L2 = (lambd / 2) * np.sum(list(map(lambda x: np.sum(np.square(x)),
+    cost_L2 = (lambd / 2) * np.nansum(list(map(lambda x: np.nansum(np.square(x)),
                                                              parameters.values())))    
     total_regularized_cost = cost_cross_entropy + cost_L2
     
