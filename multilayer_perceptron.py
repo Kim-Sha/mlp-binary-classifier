@@ -39,36 +39,45 @@ class MultiLayerNN:
     MODEL
     """
     
-    def fit_binary(self, layer_dimensions, lambd = 0.1, optimizer = "adam",
-                   learning_rate = 0.025, learning_decay_rate = 1e-7, minibatched = True, 
-                   minibatch_size = 64, beta = 0.9, beta1 = 0.9, beta2 = 0.999,
-                   epsilon = 1e-8, num_epochs = 10000, print_cost = True):
+    def fit_binary(self, layer_dimensions, learning_rate = 0.001,
+                   learning_decay_rate = 1e-7, lambd = 0.1, 
+                   minibatched = True, minibatch_size = 64, optimizer = "adam", 
+                   beta = 0.9, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8, 
+                   num_epochs = 3000, print_cost = True):
         """
-        L-layer neural network model which can be run in different optimizer modes.
+        L-layer neural network model including support for L2 regularization,
+        minibatch gradient descent, and ADAM optimization.
         
         Parameters
         ----------
         layer_dimensions : list
-        optimizer : string {"gd", "adam"}
-            Optimization algorithm to use
+            Dimensions of the NN, including input, hidden, and output layers.
+            N.B. input layer must have dimension of the number of input features
+            in X. Output layer must have dimension of 1.
         learning_rate : float
+            Defaults to 0.001.
         learning_decay_rate : float
-            Rate at which to decay the learning_rate
+            Rate at which to decay the learning_rate. Defaults to 1e-7.
+        lambd : float
+            L2 regularization hyperparameter. Defaults to 0.1.
         minibatched : boolean
-            Whether to implement mini-batches
-        minibatch_size : float
+            Whether to implement mini-batches. Defaults to True.
+        minibatch_size : int
+            Size of minibatch in powers of 2 (64, 128, 256...). Defaults to 64.
+        optimizer : string {"gd", "adam"}
+            Optimization algorithm to use. Defaults to ADAM optimizer.
         beta : float
-            Momentum hyperparameter
+            Momentum hyperparameter. Defaults to 0.9
         beta1 : float
-            Exponential decay hyperparameter for the past gradients estimates 
+            Exponential decay hyperparameter. Defaults to 0.9.
         beta2 : float
-            Exponential decay hyperparameter for the past squared gradients estimates 
+            Exponential decay hyperparameter. Defaults to 0.999. 
         epsilon : float
-            hyperparameter preventing division by zero in Adam updates
+            Small value to prevent division by 0 in ADAM. Defaults to 1e-8.
         num_epochs : int
-            number of epoch iterations
+            Number of epoch iterations. Defaults to 3000.
         print_cost : boolean
-            True to print the cost every 1000 epochs
+            Whether to print the cost every 1000 epochs. Defaults to True.
 
         Returns
         -------
@@ -83,12 +92,17 @@ class MultiLayerNN:
                 classifier. Condition: layer_dimesnsions[-1] = 1 must be \
                     satisfied for binary classifier''')
 
-        L = len(layer_dimensions) # number of layers in the neural networks
-        costs = []                # to keep track of the cost
-        learning_rates = []       # to keep track of decaying learning rate
-        adam_counter = 0                     # initializing counter required for Adam update
+        # Make assertions
+        assert (learning_rate >= 0)
+        assert (learning_decay_rate >= 0)
+        assert (lambd >= 0)
+
+        # Set trackers and counters
+        costs = []
+        learning_rates = []
+        adam_counter = 0 
         seed = 0
-        m = self.X.shape[1]       # number of training examples
+        sample_size = self.X.shape[1]
         
         # Initialize parameters
         self.parameters = initialize_parameters(layer_dimensions)
@@ -106,10 +120,11 @@ class MultiLayerNN:
             
             cost_total = 0
 
+            # Minibatch Gradient Descent
             if minibatched:
 
-                # Define the random minibatches. We increment the seed to 
-                # reshuffle differently the dataset after each epoch
+                # Define random minibatches and increment seed to reshuffle 
+                # dataset differently after each epoch
                 seed = seed + 1
                 minibatches = initialize_minibatches(self.X, self.Y, minibatch_size, seed)
 
@@ -121,29 +136,58 @@ class MultiLayerNN:
                     # Forward propagation: [LINEAR -> RELU]*(L-1) -> LINEAR -> SIGMOID.
                     AL, caches = forward_prop(minibatch_X, self.parameters)
 
-                    # Compute cost and add to the cost total
-                    cost_total += regularized_cost(AL, minibatch_Y, self.parameters, lambd)
+                    if lambd > 0:
+                        # Compute L2 regularized loss function
+                        cost_total += regularized_cost(AL, minibatch_Y, self.parameters, lambd)
+                    else:
+                        # Compute vanilla loss function
+                        cost_total += compute_cost(AL, minibatch_Y)
 
                     # Backward propagation
                     gradients = back_prop(AL, minibatch_Y, caches, lambd)
 
                     # Update parameters
                     if optimizer == "gd":
-                        self.parameters = gd_update(self.parameters, gradients,
-                                                         learning_rate)
+                        self.parameters = gd_update(self.parameters,
+                                                    gradients,
+                                                    learning_rate)
                     elif optimizer == "adam":
                         adam_counter += 1 # Adam counter
                         self.parameters, v, s = adam_update(self.parameters,
-                            gradients, v, s, adam_counter, learning_rate,
-                            beta1, beta2, epsilon)
+                                                            gradients, v, s, 
+                                                            adam_counter, 
+                                                            learning_rate,
+                                                            beta1, beta2,
+                                                            epsilon)
+            
+            # Batch Gradient Descent
             else:
+
                 AL, caches = forward_prop(self.X, self.parameters)
-                cost_total += regularized_cost(AL, self.Y, self.parameters, lambd)
+
+                if lambd > 0:
+                    cost_total += regularized_cost(AL, self.Y, self.parameters, lambd)
+                else:
+                    cost_total += compute_cost(AL, self.Y)
+
                 gradients = back_prop(AL, self.Y, caches, lambd)
-                self.parameters = gd_update(self.parameters, gradients, learning_rate)
+
+                if optimizer == "gd":
+                    self.parameters = gd_update(self.parameters,
+                                                gradients,
+                                                learning_rate)
+                elif optimizer == "adam":
+                    adam_counter += 1
+                    self.parameters, v, s = adam_update(self.parameters,
+                                                        gradients, v, s, 
+                                                        adam_counter, 
+                                                        learning_rate,
+                                                        beta1, beta2,
+                                                        epsilon)
 
             # Print the cost every 1000 epoch
-            cost_avg = cost_total / m
+            cost_avg = cost_total / sample_size
+
             if print_cost and i % 1000 == 0: 
                 print("Cost after epoch %i: %f" %(i, cost_avg))
                 print("Learning rate after epoch %i: %f" %(i, learning_rate))
@@ -154,7 +198,7 @@ class MultiLayerNN:
             # Decay learning_rate
             learning_rate = learning_rate / (1 + learning_decay_rate * i)
         
-        # Update instance attributes
+        # Update instance attributes after final iteration
         self.final_cost = cost_avg
 
         # plot the cost
@@ -170,18 +214,24 @@ class MultiLayerNN:
 
     def predict_binary(self, X, y):
         """
-        This function is used to predict the results of a  L-layer neural network.
+        Predicts output labels of dataset given parameters trained in the 
+        L-layer NN. Evaluates against true labels to determine accuracy.
         
-        Arguments:
-        X -- data set of examples you would like to label
-        parameters -- parameters of the trained model
+        Parameters
+        ----------
+        X : numpy array
+            Input dataset of examples you to predict labels for.
+        y : numpy array
+            True labels of examples to compare predictions against.
         
-        Returns:
-        p -- predictions for the given dataset X
+        Returns
+        -------
+        p : numpy array
+            predictions for given dataset X.
         """
         
-        m = X.shape[1]
-        p = np.zeros((1,m))
+        sample_size = X.shape[1]
+        p = np.zeros((1, sample_size))
         
         # Forward propagation
         probabilities = forward_prop(X, self.parameters)[0]
@@ -194,6 +244,6 @@ class MultiLayerNN:
                 p[0,i] = 0
         
         #print results
-        print("Accuracy: "  + str(np.sum((p == y)/m)))
+        print("Accuracy: "  + str(np.sum((p == y) / sample_size)))
             
         return p

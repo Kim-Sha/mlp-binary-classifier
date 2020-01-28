@@ -45,8 +45,7 @@ def regularized_cost(AL, Y, parameters, lambd):
         value of the regularized loss function (formula (2))
     """
     cost_cross_entropy = compute_cost(AL, Y) # This gives you the cross-entropy part of the cost
-    cost_L2 = (lambd / 2) * np.nansum(list(map(lambda x: np.nansum(np.square(x)),
-                                                             parameters.values())))    
+    cost_L2 = (lambd / 2) * np.nansum(list(map(lambda x: np.nansum(np.square(x)), parameters.values())))    
     total_regularized_cost = cost_cross_entropy + cost_L2
     
     return total_regularized_cost
