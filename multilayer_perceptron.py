@@ -243,7 +243,7 @@ class MultiLayerNN:
             else:
                 p[0,i] = 0
         
-        #print results
-        print("Accuracy: "  + str(np.sum((p == y) / sample_size)))
+        accuracy = np.sum((p == y) / sample_size)
+        print("Accuracy: "  + str(accuracy))
             
-        return p
+        return p, accuracy
