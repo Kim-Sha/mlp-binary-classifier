@@ -43,7 +43,7 @@ class MultiLayerNN:
                    learning_decay_rate = 1e-7, lambd = 0.1, 
                    minibatched = True, minibatch_size = 64, optimizer = "adam", 
                    beta = 0.9, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8, 
-                   num_epochs = 3000, print_cost = True):
+                   num_epochs = 3000, print_cost = True, plot_cost = True):
         """
         L-layer neural network model including support for L2 regularization,
         minibatch gradient descent, and ADAM optimization.
@@ -201,12 +201,12 @@ class MultiLayerNN:
         # Update instance attributes after final iteration
         self.final_cost = cost_avg
 
-        # plot the cost
-        plt.plot(np.squeeze(costs))
-        plt.ylabel('cost')
-        plt.xlabel('epochs (per 100)')
-        plt.title("Learning rate = " + str(learning_rate))
-        plt.show()
+        if plot_cost:
+            plt.plot(np.squeeze(costs))
+            plt.ylabel('cost')
+            plt.xlabel('epochs (per 100)')
+            plt.title("Final Learning Rate = " + str(learning_rate))
+            plt.show()
 
     """
     PREDICT
